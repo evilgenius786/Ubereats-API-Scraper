@@ -75,12 +75,12 @@ def main():
         filename = url.split('/store/')[1].replace('/', '_').split("?")[0] + '.json'
         scraped = os.listdir('./json')
         if filename not in scraped:
-            getProducts(url,filename)
+            getProducts(url, filename)
         else:
             print(f"Already scraped {url}")
 
 
-def getProducts(store_url,filename):
+def getProducts(store_url, filename):
     print(f"Fetching categories and subcategories for {store_url}")
     soup = getSoup(store_url)
     js = soup.find('script', {'id': '__REDUX_STATE__'}).text
@@ -105,8 +105,11 @@ def processJson(url, js, d, soup, filename):
             "DeliveryFee": soup.find('div', string="Delivery").find_parent('div').text.strip(),
         }
         for subcat in js['data'][cat]:
+
             payload = subcat['payload']['standardItemsPayload']
-            title = payload['title']['text']
+            title = payload['title']['text'].strip()
+            if title in ["Picked for you", "Save on Select Items"]:
+                continue
             data[c][title] = []
             for item in payload['catalogItems']:
                 product = {
@@ -116,13 +119,13 @@ def processJson(url, js, d, soup, filename):
                     "subcategory": title,
                     "item_image_url": item['imageUrl'],
                     "item_description": item['title'],
-                    "item_price": round(item['price']/100,2),
+                    "item_price": round(item['price'] / 100, 2),
                     "delivery_fee": soup.find('div', string="Delivery").find_parent('div').text.strip(),
                 }
                 products.append(product)
                 data[c][title].append({
                     "Name": item['title'],
-                    "Price": round(item['price']/100,2),
+                    "Price": round(item['price'] / 100, 2),
                     "Image": item['imageUrl'],
                 })
     # print(json.dumps(data, indent=4))
