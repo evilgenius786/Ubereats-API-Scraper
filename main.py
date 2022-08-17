@@ -83,13 +83,19 @@ def main():
 def getProducts(store_url: str, filename: str):
     print(f"Fetching categories and subcategories for {store_url}")
     soup = getSoup(store_url)
+    # get the javascript code that contains category names, category (section) ids and store id
     js = soup.find('script', {'id': '__REDUX_STATE__'}).text
+    # fetch category names from js code using regex
     names = [x for x in re.findall(r'{\\u0022title\\u0022:{\\u0022text\\u0022:\\u0022(.*?)\\u0022', js)]
+    # fetch category ids from js code using regex
     sections = [x.replace("\\u0022", "")[1:-1] for x in re.findall('catalogSectionUUID(.*?)payload', js)]
+    # map each category id to each category name, so we have human-readable name in out put instead of random numbers.
     d = {s: n for s, n in zip(sections, names)}
-    # print(json.dumps(d, indent=4))
+    # fetch store id from js code using regex
     store = re.findall('menuUUID(.*?)menuDisplayType', js)[0].replace("\\u0022", "")[1:-1]
+    # send request to API to get products data
     js = getApi(filename, store, sections)
+    # process products data and write to csv file
     processJson(store_url, js, d, soup, filename)
 
 
