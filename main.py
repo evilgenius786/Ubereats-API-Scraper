@@ -16,7 +16,7 @@ fieldnames = ["site_url", "script_start_time", "category", "subcategory", "item_
 encoding = 'utf8'
 
 
-def getApi(filename, store, sections):
+def getApi(filename: str, store: str, sections: list):
     print(f"Got StoreID: {store} Sections: {sections}")
     location = {"address": {
         "address1": "Colombo",
@@ -80,7 +80,7 @@ def main():
             print(f"Already scraped {url}")
 
 
-def getProducts(store_url, filename):
+def getProducts(store_url: str, filename: str):
     print(f"Fetching categories and subcategories for {store_url}")
     soup = getSoup(store_url)
     js = soup.find('script', {'id': '__REDUX_STATE__'}).text
@@ -93,9 +93,10 @@ def getProducts(store_url, filename):
     processJson(store_url, js, d, soup, filename)
 
 
-def processJson(url, js, d, soup, filename):
+def processJson(url: str, js: dict, d: dict, soup: BeautifulSoup, filename: str):
     data = {}
     products = []
+    # iterating through each category in JSON
     for cat in js['data'].keys():
         c = d[cat] if cat in d else cat
         # print(f"Working on category {cat} {c}")
@@ -104,8 +105,10 @@ def processJson(url, js, d, soup, filename):
             "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "DeliveryFee": soup.find('div', string="Delivery").find_parent('div').text.strip(),
         }
+        # iterating through each subcategory in JSON
         for subcat in js['data'][cat]:
-
+            # the data required is in the "payload" key so navigating to that,
+            # check the JSON structure in the "json" directory for details
             payload = subcat['payload']['standardItemsPayload']
             title = payload['title']['text'].strip()
             if title in ["Picked for you", "Save on Select Items"]:
@@ -137,7 +140,7 @@ def processJson(url, js, d, soup, filename):
     convert("UberEats.csv")
 
 
-def convert(filename):
+def convert(filename: str):
     wb = openpyxl.Workbook()
     ws = wb.active
     with open(filename, encoding=encoding) as f:
