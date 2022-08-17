@@ -178,6 +178,7 @@ def getSoup(url):
     return BeautifulSoup(requests.get(url).text, 'lxml')
 
 
+
 if __name__ == '__main__':
     main()
     # getProducts(
