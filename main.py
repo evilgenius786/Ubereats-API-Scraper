@@ -16,7 +16,7 @@ fieldnames = ["site_url", "script_start_time", "category", "subcategory", "item_
 encoding = 'utf8'
 
 
-def getApi(store_url, store, sections):
+def getApi(filename, store, sections):
     print(f"Got StoreID: {store} Sections: {sections}")
     location = {"address": {
         "address1": "Colombo",
@@ -54,46 +54,33 @@ def getApi(store_url, store, sections):
     url = "https://www.ubereats.com/api/getCatalogItemsBySectionV1"
     response = requests.post(url, data=payload, headers=headers)
     # print(response.text)
-    # filename = store_url.split('/store/')[1].replace('/', '_') + '.json'
-    # with open(f"./json/{filename}", 'w') as outfile:
-    #     json.dump(response.json(), outfile, indent=4)
+    with open(f"./json/{filename}", 'w') as outfile:
+        json.dump(response.json(), outfile, indent=4)
     # print("Save to file: " + filename)
     return response.json()
 
 
 def main():
     logo()
-    # if not os.path.isdir('json'):
-    #     os.mkdir('json')
-    # if not os.path.isdir('ProcessedJson'):
-    #     os.mkdir('ProcessedJson')
+    if not os.path.isdir('json'):
+        os.mkdir('json')
+    if not os.path.isdir('ProcessedJson'):
+        os.mkdir('ProcessedJson')
     if not os.path.isfile('UberEats.csv'):
         with open("UberEats.csv", 'w', encoding=encoding, newline='') as outfile:
             csv.DictWriter(outfile, fieldnames=fieldnames).writeheader()
     with open('urls.txt', 'r') as f:
         urls = f.read().splitlines()
-    scraped = []
-    if os.path.isfile('scraped.txt'):
-        with open('scraped.txt', 'r') as f:
-            scraped = f.read().splitlines()
-
     for url in urls:
-        if url not in scraped:
-            getProducts(url)
-            scraped.append(url)
-            with open('scraped.txt', 'a') as f:
-                f.write(url + '\n')
+        filename = url.split('/store/')[1].replace('/', '_').split("?")[0] + '.json'
+        scraped = os.listdir('./json')
+        if filename not in scraped:
+            getProducts(url,filename)
         else:
-            print(f"already scraped {url}")
-        # filename = url.split('/store/')[1].replace('/', '_') + '.json'
-        # scraped = os.listdir('./json')
-        # if filename not in scraped:
-        #     getProducts(url)
-        # else:
-        #     print(f"Already scraped {url}")
+            print(f"Already scraped {url}")
 
 
-def getProducts(store_url):
+def getProducts(store_url,filename):
     print(f"Fetching categories and subcategories for {store_url}")
     soup = getSoup(store_url)
     js = soup.find('script', {'id': '__REDUX_STATE__'}).text
@@ -102,38 +89,45 @@ def getProducts(store_url):
     d = {s: n for s, n in zip(sections, names)}
     # print(json.dumps(d, indent=4))
     store = re.findall('menuUUID(.*?)menuDisplayType', js)[0].replace("\\u0022", "")[1:-1]
-    js = getApi(store_url, store, sections)
-    # filename = store_url.split('/store/')[1].replace('/', '_') + '.json'
-    processJson(store_url, js, d, soup)
+    js = getApi(filename, store, sections)
+    processJson(store_url, js, d, soup, filename)
 
 
-def processJson(url, js, d, soup):
-    # data = {}
+def processJson(url, js, d, soup, filename):
+    data = {}
     products = []
     for cat in js['data'].keys():
         c = d[cat] if cat in d else cat
         # print(f"Working on category {cat} {c}")
-        # data[c] = {}
+        data[c] = {
+            "URL": url,
+            "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "DeliveryFee": soup.find('div', string="Delivery").find_parent('div').text.strip(),
+        }
         for subcat in js['data'][cat]:
             payload = subcat['payload']['standardItemsPayload']
             title = payload['title']['text']
-            # data[c][title] = []
+            data[c][title] = []
             for item in payload['catalogItems']:
                 product = {
                     "site_url": url,
-                    "script_start_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "script_start_time": data[c]["Time"],
                     "category": c,
                     "subcategory": title,
                     "item_image_url": item['imageUrl'],
                     "item_description": item['title'],
-                    "item_price": item['price'],
+                    "item_price": round(item['price']/100,2),
                     "delivery_fee": soup.find('div', string="Delivery").find_parent('div').text.strip(),
                 }
                 products.append(product)
-                # data[c][title].append(product)
+                data[c][title].append({
+                    "Name": item['title'],
+                    "Price": round(item['price']/100,2),
+                    "Image": item['imageUrl'],
+                })
     # print(json.dumps(data, indent=4))
-    # with open('ProcessedJson/' + filename, 'w') as outfile:
-    #     json.dump(data, outfile, indent=4)
+    with open('ProcessedJson/' + filename, 'w') as outfile:
+        json.dump(data, outfile, indent=4)
     with open("UberEats.csv", 'a', encoding=encoding, newline='') as outfile:
         writer = csv.DictWriter(outfile, fieldnames=fieldnames)
         writer.writerows(products)
